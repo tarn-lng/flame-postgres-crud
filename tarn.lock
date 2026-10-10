@@ -1,5 +1,5 @@
 {
-  "manifest": "63d934396e73cd2a9de0df09d4700b6dca6cfbf6357bd815a8667bdbfd97dc90",
+  "manifest": "414a27a792c543c20a990709d556325543445620269b72e8a4c42508371a86fc",
   "packages": [
     {
       "registry": "file:///home/cesar/Documentos/proyectos/tarn-registry/site/",
@@ -27,15 +27,15 @@
         "files": {
           "README.md": "a2e3b244b0782d2b061121305ecef4302b2ccd374d7d68872363aa3be519f16b",
           "examples/demo.tarn": "3b4508ae06deecea1411cf557c2a625b8b4523d5ed35695ac59c4d2d21f22a11",
-          "lib.tarn": "45ec642317b41d3b4fcc0cc63af1d1ce095898f91548d9588fe33205ae0d06b5",
-          "main.tarn": "0b4223877d68e0875afdcf2e5a8f5394d4fb7bf65eaa05428e2ce6cbdc45ecea",
-          "tarn.toml": "557cce55cf24bb52fbe797587a30037def4f0304353866b01ce2dc8fd596299d"
+          "lib.tarn": "4f8d3a0871e795c891ccc79f60321eabe12d3cdf3875a229c77a3b7459520a4b",
+          "main.tarn": "3397cbd5e683a8094c78f0c6292a0201f86db801e928907c96e89e15f277cac9",
+          "tarn.toml": "0f3ca9f2c9b55b4424fa91063bc7716025327954adddcea128ffaf9df8721bc8"
         },
-        "hash": "e65ab5a5129f06e0fc68560ebb8ff3331abb1b1b442acee8a639f2e737079320",
+        "hash": "4fd9339dc5a1d28e0e9c1cec171bba414aee76120e2069422da8a9ce4c0d2e1a",
         "name": "postgres",
-        "published": 1791644813,
+        "published": 1791646094,
         "schema": 1,
-        "version": "0.2.0"
+        "version": "0.3.0"
       }
     }
   ],

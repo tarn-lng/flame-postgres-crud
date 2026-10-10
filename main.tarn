@@ -3,19 +3,18 @@ import "postgres"
 import "json"
 import "string"
 import "io"
+import "os"
 
-fn init_db() Result<void, postgres.Error> {
-    cfg := postgres.Config.default()
-    var db = try postgres.Client.connect(cfg)
+fn init_db(db_url &string) Result<void, postgres.Error> {
+    var db = try postgres.Client.connect_url(db_url)
     create_sql := "CREATE TABLE IF NOT EXISTS products (id SERIAL PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, price TEXT NOT NULL, in_stock BOOLEAN NOT NULL DEFAULT true);"
     _tag := try db.execute(&create_sql)
     _close := db.close()
     return Ok(())
 }
 
-fn seed_db_if_empty() Result<void, postgres.Error> {
-    cfg := postgres.Config.default()
-    var db = try postgres.Client.connect(cfg)
+fn seed_db_if_empty(db_url &string) Result<void, postgres.Error> {
+    var db = try postgres.Client.connect_url(db_url)
     count_sql := "SELECT count(*) FROM products;"
     res := try db.query(&count_sql)
     if res.rows.len() > 0 {
@@ -51,25 +50,39 @@ fn main() Result<void, io.Error> {
     print("  Pure Tarn · Zero C Dependencies · Docker Postgres\n")
     print("====================================================\n")
 
+    // Database Connection URL (from DATABASE_URL env var or local Docker fallback)
+    var db_url = "postgres://postgres:postgres@127.0.0.1:5432/testdb?sslmode=disable"
+    match os.env_or(&"DATABASE_URL", &"postgres://postgres:postgres@127.0.0.1:5432/testdb?sslmode=disable") {
+        Ok(u) => { db_url = u }
+        Err(_) => {}
+    }
+
     // 1. Initialize Database Schema & Initial Data
-    print("Connecting to PostgreSQL and verifying table 'products'...\n")
-    match init_db() {
+    print("Connecting to PostgreSQL at URL and verifying table 'products'...\n")
+    match init_db(&db_url) {
         Ok(v) => { print("✓ Table 'products' is ready!\n") }
         Err(e) => {
             print("✗ Database initialization failed: " + e.message + "\n")
             return Err(io.Error.new(io.ErrorKind.OtherOs))
         }
     }
-    match seed_db_if_empty() {
+    match seed_db_if_empty(&db_url) {
         Ok(v) => { print("✓ Initial product records seeded if table was empty.\n") }
         Err(e) => {}
     }
 
-    // 2. Initialize Reusable Native Connection Pool
-    cfg := postgres.Config.default()
-    var pool = postgres.Pool.new(cfg, 10)
+    // 2. Initialize Reusable Native Connection Pool from URL
+    var pool_res = postgres.Pool.from_url(&db_url, 10)
+    var pool: postgres.Pool
+    match pool_res {
+        Ok(p) => { pool = p }
+        Err(e) => {
+            print("✗ Database pool initialization failed: " + e.message + "\n")
+            return Err(io.Error.new(io.ErrorKind.OtherOs))
+        }
+    }
     var db_pool = Mutex.new(pool)
-    print("✓ PostgreSQL native connection pool initialized (max_size: 10).\n")
+    print("✓ PostgreSQL native connection pool initialized from URL (max_size: 10).\n")
 
     var app = flame.new()
 

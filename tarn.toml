@@ -8,4 +8,4 @@ source = "/home/cesar/Documentos/proyectos/tarn-registry/site/"
 
 [dependencies]
 flame = "0.1.0"
-postgres = "0.2.0"
+postgres = "0.3.0"
