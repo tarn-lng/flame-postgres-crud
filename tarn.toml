@@ -1,0 +1,11 @@
+[package]
+name = "crud_app"
+version = "0.1.0"
+entry = "main.tarn"
+
+[registry]
+source = "/home/cesar/Documentos/proyectos/tarn-registry/site/"
+
+[dependencies]
+flame = "0.1.0"
+postgres = "0.1.0"
