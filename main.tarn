@@ -76,145 +76,214 @@ fn main() Result<void, io.Error> {
 
     // Health check endpoint
     app.get("/health", fn(c &mut flame.Ctx) Result<void, flame.Error> {
-        match get_db() {
-            Ok(db) => {
-                _ := db.close()
-                return c.json(200, "{\"status\": \"healthy\", \"database\": \"connected\", \"framework\": \"Flame 0.1.0\"}")
+            match get_db() {
+                Ok(db) => {
+                    _ := db.close()
+                    return c.json(200, "{\"status\": \"healthy\", \"database\": \"connected\", \"framework\": \"Flame 0.1.0\"}")
+                }
+                Err(e) => {
+                    return c.json(500, "{\"status\": \"unhealthy\", \"error\": \"" + e.message + "\"}")
+                }
             }
-            Err(e) => {
-                return c.json(500, "{\"status\": \"unhealthy\", \"error\": \"" + e.message + "\"}")
-            }
-        }
     })
 
     // 1. READ ALL: GET /products
     app.get("/products", fn(c &mut flame.Ctx) Result<void, flame.Error> {
-        var db: postgres.Client
-        match get_db() {
-            Ok(client) => { db = client }
-            Err(e) => { return c.json(500, "{\"error\": \"Database connection error: " + e.message + "\"}") }
-        }
+            var db: postgres.Client
+            match get_db() {
+                Ok(client) => { db = client }
+                Err(e) => { return c.json(500, "{\"error\": \"Database connection error: " + e.message + "\"}") }
+            }
 
-        sql := "SELECT id, title, category, price, in_stock FROM products ORDER BY id ASC;"
-        match db.query(&sql) {
-            Ok(res) => {
-                _ := db.close()
-                var w = json.Writer.new()
-                w.begin_array()
-                for r in res.rows.as_slice() {
-                    id_val := r.get_or(0, "0")
-                    title_val := r.get_or(1, "")
-                    cat_val := r.get_or(2, "")
-                    price_val := r.get_or(3, "0.00")
-                    stock_val := r.get_or(4, "t")
-                    is_in_stock := stock_val == "t" || stock_val == "true"
+            sql := "SELECT id, title, category, price, in_stock FROM products ORDER BY id ASC;"
+            match db.query(&sql) {
+                Ok(res) => {
+                    _ := db.close()
+                    var w = json.Writer.new()
+                    w.begin_array()
+                    for r in res.rows.as_slice() {
+                        id_val := r.get_or(0, "0")
+                        title_val := r.get_or(1, "")
+                        cat_val := r.get_or(2, "")
+                        price_val := r.get_or(3, "0.00")
+                        stock_val := r.get_or(4, "t")
+                        is_in_stock := stock_val == "t" || stock_val == "true"
 
-                    w.begin_object()
-                    match string.parse_u64(&id_val) {
-                        Some(num) => { w.field_u64(&"id", num) }
-                        None => { w.field_string(&"id", &id_val) }
+                        w.begin_object()
+                        match string.parse_u64(&id_val) {
+                            Some(num) => { w.field_u64(&"id", num) }
+                            None => { w.field_string(&"id", &id_val) }
+                        }
+                        w.field_string(&"title", &title_val)
+                        w.field_string(&"category", &cat_val)
+                        w.field_string(&"price", &price_val)
+                        w.field_bool(&"in_stock", is_in_stock)
+                        w.end_object()
                     }
-                    w.field_string(&"title", &title_val)
-                    w.field_string(&"category", &cat_val)
-                    w.field_string(&"price", &price_val)
-                    w.field_bool(&"in_stock", is_in_stock)
-                    w.end_object()
+                    w.end_array()
+                    return c.json(200, w.finish())
                 }
-                w.end_array()
-                return c.json(200, w.finish())
+                Err(e) => {
+                    _ := db.close()
+                    return c.json(500, "{\"error\": \"Query failed: " + e.message + "\"}")
+                }
             }
-            Err(e) => {
-                _ := db.close()
-                return c.json(500, "{\"error\": \"Query failed: " + e.message + "\"}")
-            }
-        }
     })
 
     // 2. READ ONE: GET /products/:id
     app.get("/products/:id", fn(c &mut flame.Ctx) Result<void, flame.Error> {
-        id := c.param(&"id")
-        if id.len() == 0 {
-            return c.json(400, "{\"error\": \"Missing product ID\"}")
-        }
+            id := c.param(&"id")
+            if id.len() == 0 {
+                return c.json(400, "{\"error\": \"Missing product ID\"}")
+            }
 
-        var db: postgres.Client
-        match get_db() {
-            Ok(client) => { db = client }
-            Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
-        }
+            var db: postgres.Client
+            match get_db() {
+                Ok(client) => { db = client }
+                Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
+            }
 
-        sql := "SELECT id, title, category, price, in_stock FROM products WHERE id = " + id + " LIMIT 1;"
-        match db.query(&sql) {
-            Ok(res) => {
-                _ := db.close()
-                if res.rows.len() == 0 {
-                    return c.json(404, "{\"error\": \"Product not found\"}")
+            sql := "SELECT id, title, category, price, in_stock FROM products WHERE id = " + id + " LIMIT 1;"
+            match db.query(&sql) {
+                Ok(res) => {
+                    _ := db.close()
+                    if res.rows.len() == 0 {
+                        return c.json(404, "{\"error\": \"Product not found\"}")
+                    }
+                    first := res.rows.get(0)
+                    id_val := first.get_or(0, id.clone())
+                    title_val := first.get_or(1, "")
+                    cat_val := first.get_or(2, "")
+                    price_val := first.get_or(3, "0.00")
+                    stock_val := first.get_or(4, "t")
+                    is_in_stock := stock_val == "t" || stock_val == "true"
+
+                    json_body := format_product_json(&id_val, &title_val, &cat_val, &price_val, is_in_stock)
+                    return c.json(200, json_body)
                 }
-                first := res.rows.get(0)
-                id_val := first.get_or(0, id.clone())
-                title_val := first.get_or(1, "")
-                cat_val := first.get_or(2, "")
-                price_val := first.get_or(3, "0.00")
-                stock_val := first.get_or(4, "t")
-                is_in_stock := stock_val == "t" || stock_val == "true"
-
-                json_body := format_product_json(&id_val, &title_val, &cat_val, &price_val, is_in_stock)
-                return c.json(200, json_body)
+                Err(e) => {
+                    _ := db.close()
+                    return c.json(500, "{\"error\": \"Query failed: " + e.message + "\"}")
+                }
             }
-            Err(e) => {
-                _ := db.close()
-                return c.json(500, "{\"error\": \"Query failed: " + e.message + "\"}")
-            }
-        }
     })
 
     // 3. CREATE: POST /products
     app.post("/products", fn(c &mut flame.Ctx) Result<void, flame.Error> {
-        raw_body := c.body_string()
-        if raw_body.len() == 0 {
-            return c.json(400, "{\"error\": \"Request body cannot be empty\"}")
-        }
+            raw_body := c.body_string()
+            if raw_body.len() == 0 {
+                return c.json(400, "{\"error\": \"Request body cannot be empty\"}")
+            }
 
-        var title = ""
-        var category = "General"
-        var price = "0.00"
+            var title = ""
+            var category = "General"
+            var price = "0.00"
 
-        match json.parse(&raw_body) {
-            Ok(val) => {
-                match val.text(&"title") {
-                    Some(t) => { title = t }
-                    None => { return c.json(400, "{\"error\": \"Missing required field 'title'\"}") }
-                }
-                match val.text(&"category") {
-                    Some(cat) => { category = cat }
-                    None => {}
-                }
-                match val.text(&"price") {
-                    Some(p) => { price = p }
-                    None => match val.u64(&"price") {
-                        Some(p_num) => { price = string.from_u64(p_num) }
+            match json.parse(&raw_body) {
+                Ok(val) => {
+                    match val.text(&"title") {
+                        Some(t) => { title = t }
+                        None => { return c.json(400, "{\"error\": \"Missing required field 'title'\"}") }
+                    }
+                    match val.text(&"category") {
+                        Some(cat) => { category = cat }
                         None => {}
                     }
+                    match val.text(&"price") {
+                        Some(p) => { price = p }
+                        None => match val.u64(&"price") {
+                            Some(p_num) => { price = string.from_u64(p_num) }
+                            None => {}
+                        }
+                    }
+                }
+                Err(e) => {
+                    return c.json(400, "{\"error\": \"Malformed JSON payload\"}")
                 }
             }
-            Err(e) => {
-                return c.json(400, "{\"error\": \"Malformed JSON payload\"}")
+
+            var db: postgres.Client
+            match get_db() {
+                Ok(client) => { db = client }
+                Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
             }
-        }
 
-        var db: postgres.Client
-        match get_db() {
-            Ok(client) => { db = client }
-            Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
-        }
+            insert_sql := "INSERT INTO products (title, category, price, in_stock) VALUES ('" + title + "', '" + category + "', '" + price + "', true) RETURNING id, title, category, price, in_stock;"
+            match db.query(&insert_sql) {
+                Ok(res) => {
+                    _ := db.close()
+                    if res.rows.len() > 0 {
+                        first := res.rows.get(0)
+                        id_val := first.get_or(0, "0")
+                        title_val := first.get_or(1, title)
+                        cat_val := first.get_or(2, category)
+                        price_val := first.get_or(3, price)
+                        stock_val := first.get_or(4, "t")
+                        is_in_stock := stock_val == "t" || stock_val == "true"
 
-        insert_sql := "INSERT INTO products (title, category, price, in_stock) VALUES ('" + title + "', '" + category + "', '" + price + "', true) RETURNING id, title, category, price, in_stock;"
-        match db.query(&insert_sql) {
-            Ok(res) => {
-                _ := db.close()
-                if res.rows.len() > 0 {
+                        json_body := format_product_json(&id_val, &title_val, &cat_val, &price_val, is_in_stock)
+                        return c.json(201, json_body)
+                    }
+                    return c.json(201, "{\"status\": \"created\"}")
+                }
+                Err(e) => {
+                    _ := db.close()
+                    return c.json(500, "{\"error\": \"Insert failed: " + e.message + "\"}")
+                }
+            }
+    })
+
+    // 4. UPDATE: PUT /products/:id
+    app.put("/products/:id", fn(c &mut flame.Ctx) Result<void, flame.Error> {
+            id := c.param(&"id")
+            if id.len() == 0 {
+                return c.json(400, "{\"error\": \"Missing product ID\"}")
+            }
+
+            raw_body := c.body_string()
+            if raw_body.len() == 0 {
+                return c.json(400, "{\"error\": \"Request body cannot be empty\"}")
+            }
+
+            var title = ""
+            var category = ""
+            var price = ""
+
+            match json.parse(&raw_body) {
+                Ok(val) => {
+                    match val.text(&"title") {
+                        Some(t) => { title = t }
+                        None => { return c.json(400, "{\"error\": \"Missing field 'title'\"}") }
+                    }
+                    match val.text(&"category") {
+                        Some(cat) => { category = cat }
+                        None => { category = "General" }
+                    }
+                    match val.text(&"price") {
+                        Some(p) => { price = p }
+                        None => { price = "0.00" }
+                    }
+                }
+                Err(e) => {
+                    return c.json(400, "{\"error\": \"Malformed JSON payload\"}")
+                }
+            }
+
+            var db: postgres.Client
+            match get_db() {
+                Ok(client) => { db = client }
+                Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
+            }
+
+            update_sql := "UPDATE products SET title = '" + title + "', category = '" + category + "', price = '" + price + "' WHERE id = " + id + " RETURNING id, title, category, price, in_stock;"
+            match db.query(&update_sql) {
+                Ok(res) => {
+                    _ := db.close()
+                    if res.rows.len() == 0 {
+                        return c.json(404, "{\"error\": \"Product not found\"}")
+                    }
                     first := res.rows.get(0)
-                    id_val := first.get_or(0, "0")
+                    id_val := first.get_or(0, id)
                     title_val := first.get_or(1, title)
                     cat_val := first.get_or(2, category)
                     price_val := first.get_or(3, price)
@@ -222,123 +291,54 @@ fn main() Result<void, io.Error> {
                     is_in_stock := stock_val == "t" || stock_val == "true"
 
                     json_body := format_product_json(&id_val, &title_val, &cat_val, &price_val, is_in_stock)
-                    return c.json(201, json_body)
+                    return c.json(200, json_body)
                 }
-                return c.json(201, "{\"status\": \"created\"}")
-            }
-            Err(e) => {
-                _ := db.close()
-                return c.json(500, "{\"error\": \"Insert failed: " + e.message + "\"}")
-            }
-        }
-    })
-
-    // 4. UPDATE: PUT /products/:id
-    app.put("/products/:id", fn(c &mut flame.Ctx) Result<void, flame.Error> {
-        id := c.param(&"id")
-        if id.len() == 0 {
-            return c.json(400, "{\"error\": \"Missing product ID\"}")
-        }
-
-        raw_body := c.body_string()
-        if raw_body.len() == 0 {
-            return c.json(400, "{\"error\": \"Request body cannot be empty\"}")
-        }
-
-        var title = ""
-        var category = ""
-        var price = ""
-
-        match json.parse(&raw_body) {
-            Ok(val) => {
-                match val.text(&"title") {
-                    Some(t) => { title = t }
-                    None => { return c.json(400, "{\"error\": \"Missing field 'title'\"}") }
-                }
-                match val.text(&"category") {
-                    Some(cat) => { category = cat }
-                    None => { category = "General" }
-                }
-                match val.text(&"price") {
-                    Some(p) => { price = p }
-                    None => { price = "0.00" }
+                Err(e) => {
+                    _ := db.close()
+                    return c.json(500, "{\"error\": \"Update failed: " + e.message + "\"}")
                 }
             }
-            Err(e) => {
-                return c.json(400, "{\"error\": \"Malformed JSON payload\"}")
-            }
-        }
-
-        var db: postgres.Client
-        match get_db() {
-            Ok(client) => { db = client }
-            Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
-        }
-
-        update_sql := "UPDATE products SET title = '" + title + "', category = '" + category + "', price = '" + price + "' WHERE id = " + id + " RETURNING id, title, category, price, in_stock;"
-        match db.query(&update_sql) {
-            Ok(res) => {
-                _ := db.close()
-                if res.rows.len() == 0 {
-                    return c.json(404, "{\"error\": \"Product not found\"}")
-                }
-                first := res.rows.get(0)
-                id_val := first.get_or(0, id)
-                title_val := first.get_or(1, title)
-                cat_val := first.get_or(2, category)
-                price_val := first.get_or(3, price)
-                stock_val := first.get_or(4, "t")
-                is_in_stock := stock_val == "t" || stock_val == "true"
-
-                json_body := format_product_json(&id_val, &title_val, &cat_val, &price_val, is_in_stock)
-                return c.json(200, json_body)
-            }
-            Err(e) => {
-                _ := db.close()
-                return c.json(500, "{\"error\": \"Update failed: " + e.message + "\"}")
-            }
-        }
     })
 
     // 5. DELETE: DELETE /products/:id
     app.delete("/products/:id", fn(c &mut flame.Ctx) Result<void, flame.Error> {
-        id := c.param(&"id")
-        if id.len() == 0 {
-            return c.json(400, "{\"error\": \"Missing product ID\"}")
-        }
-
-        var db: postgres.Client
-        match get_db() {
-            Ok(client) => { db = client }
-            Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
-        }
-
-        // Verify exists first
-        check_sql := "SELECT id FROM products WHERE id = " + id + ";"
-        var check_res: postgres.QueryResult
-        match db.query(&check_sql) {
-            Ok(r) => { check_res = r }
-            Err(e) => {
-                _ := db.close()
-                return c.json(500, "{\"error\": \"Query failed: " + e.message + "\"}")
+            id := c.param(&"id")
+            if id.len() == 0 {
+                return c.json(400, "{\"error\": \"Missing product ID\"}")
             }
-        }
-        if check_res.rows.len() == 0 {
-            _ := db.close()
-            return c.json(404, "{\"error\": \"Product not found\"}")
-        }
 
-        delete_sql := "DELETE FROM products WHERE id = " + id + ";"
-        match db.execute(&delete_sql) {
-            Ok(tag) => {
-                _ := db.close()
-                return c.json(200, "{\"status\": \"deleted\", \"id\": " + id + "}")
+            var db: postgres.Client
+            match get_db() {
+                Ok(client) => { db = client }
+                Err(e) => { return c.json(500, "{\"error\": \"Database connection error\"}") }
             }
-            Err(e) => {
-                _ := db.close()
-                return c.json(500, "{\"error\": \"Delete failed: " + e.message + "\"}")
+
+            // Verify exists first
+            check_sql := "SELECT id FROM products WHERE id = " + id + ";"
+            var check_res: postgres.QueryResult
+            match db.query(&check_sql) {
+                Ok(r) => { check_res = r }
+                Err(e) => {
+                    _ := db.close()
+                    return c.json(500, "{\"error\": \"Query failed: " + e.message + "\"}")
+                }
             }
-        }
+            if check_res.rows.len() == 0 {
+                _ := db.close()
+                return c.json(404, "{\"error\": \"Product not found\"}")
+            }
+
+            delete_sql := "DELETE FROM products WHERE id = " + id + ";"
+            match db.execute(&delete_sql) {
+                Ok(tag) => {
+                    _ := db.close()
+                    return c.json(200, "{\"status\": \"deleted\", \"id\": " + id + "}")
+                }
+                Err(e) => {
+                    _ := db.close()
+                    return c.json(500, "{\"error\": \"Delete failed: " + e.message + "\"}")
+                }
+            }
     })
 
     addr := "127.0.0.1:8080"
