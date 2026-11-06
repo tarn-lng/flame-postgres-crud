@@ -1,8 +1,8 @@
 {
-  "manifest": "414a27a792c543c20a990709d556325543445620269b72e8a4c42508371a86fc",
+  "manifest": "a9c4306d3f4de5ae63faa50c9063c0cc835875c00550c9001d1375d8dd276ba1",
   "packages": [
     {
-      "registry": "file:///home/cesar/Documentos/proyectos/tarn-registry/site/",
+      "registry": "https://tarn-lng.github.io/registry/",
       "release": {
         "dependencies": {},
         "entry": "lib.tarn",
@@ -20,7 +20,7 @@
       }
     },
     {
-      "registry": "file:///home/cesar/Documentos/proyectos/tarn-registry/site/",
+      "registry": "https://tarn-lng.github.io/registry/",
       "release": {
         "dependencies": {},
         "entry": "lib.tarn",

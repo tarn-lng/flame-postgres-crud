@@ -4,7 +4,7 @@ version = "0.1.0"
 entry = "main.tarn"
 
 [registry]
-source = "/home/cesar/Documentos/proyectos/tarn-registry/site/"
+source = "https://tarn-lng.github.io/registry/"
 
 [dependencies]
 flame = "0.1.0"
